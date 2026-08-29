@@ -122,44 +122,50 @@ st.sidebar.subheader("Property A")
 
 property_a_price = st.sidebar.number_input(
     "Purchase price — Property A",
-    min_value=0,
-    value=350_000,
-    step=10_000,
+    min_value=0.00,
+    value=350_000.00,
+    step=10_000.00,
+    format="%.2f",
 )
 
 property_a_down_payment = st.sidebar.number_input(
     "Down payment — Property A",
-    min_value=0,
-    value=250_000,
-    step=10_000,
+    min_value=0.00,
+    value=250_000.00,
+    step=10_000.00,
+    format="%.2f",
 )
 
 property_a_monthly_rent = st.sidebar.number_input(
     "Monthly rent — Property A",
-    min_value=0,
-    value=2_500,
-    step=100,
+    min_value=0.00,
+    value=2_500.00,
+    step=100.00,
+    format="%.2f",
 )
 
 property_a_insurance = st.sidebar.number_input(
     "Annual insurance — Property A",
-    min_value=0,
-    value=3_500,
-    step=100,
+    min_value=0.00,
+    value=3_500.00,
+    step=100.00,
+    format="%.2f",
 )
 
 property_a_maintenance = st.sidebar.number_input(
     "Annual maintenance — Property A",
-    min_value=0,
-    value=3_500,
-    step=100,
+    min_value=0.00,
+    value=3_500.00,
+    step=100.00,
+    format="%.2f",
 )
 
 property_a_monthly_hoa = st.sidebar.number_input(
     "Monthly HOA — Property A",
-    min_value=0,
-    value=0,
-    step=25,
+    min_value=0.00,
+    value=0.00,
+    step=25.00,
+    format="%.2f",
 )
 
 # Add Property B inputs
@@ -168,44 +174,50 @@ st.sidebar.subheader("Property B")
 
 property_b_price = st.sidebar.number_input(
     "Purchase price — Property B",
-    min_value=0,
-    value=550_000,
-    step=10_000,
+    min_value=0.00,
+    value=550_000.00,
+    step=10_000.00,
+    format="%.2f",
 )
 
 property_b_down_payment = st.sidebar.number_input(
     "Down payment — Property B",
-    min_value=0,
-    value=250_000,
-    step=10_000,
+    min_value=0.00,
+    value=250_000.00,
+    step=10_000.00,
+    format="%.2f",
 )
 
 property_b_monthly_rent = st.sidebar.number_input(
     "Monthly rent — Property B",
-    min_value=0,
-    value=3_500,
-    step=100,
+    min_value=0.00,
+    value=3_500.00,
+    step=100.00,
+    format="%.2f",
 )
 
 property_b_insurance = st.sidebar.number_input(
     "Annual insurance — Property B",
-    min_value=0,
-    value=5_500,
-    step=100,
+    min_value=0.00,
+    value=5_500.00,
+    step=100.00,
+    format="%.2f",
 )
 
 property_b_maintenance = st.sidebar.number_input(
     "Annual maintenance — Property B",
-    min_value=0,
-    value=5_500,
-    step=100,
+    min_value=0.00,
+    value=5_500.00,
+    step=100.00,
+    format="%.2f",
 )
 
 property_b_monthly_hoa = st.sidebar.number_input(
     "Monthly HOA — Property B",
-    min_value=0,
-    value=0,
-    step=25,
+    min_value=0.00,
+    value=0.00,
+    step=25.00,
+    format="%.2f",
 )
 
 # Validate the inputs
@@ -315,17 +327,17 @@ metric_1, metric_2, metric_3, metric_4 = st.columns(4)
 
 metric_1.metric(
     "Property A Total Profit",
-    f"${property_a_summary['Total Profit']:,.0f}",
+    f"${property_a_summary['Total Profit']:,.2f}",
 )
 
 metric_2.metric(
     "Property B Total Profit",
-    f"${property_b_summary['Total Profit']:,.0f}",
+    f"${property_b_summary['Total Profit']:,.2f}",
 )
 
 metric_3.metric(
     "Profit Difference",
-    f"${abs(profit_difference):,.0f}",
+    f"${abs(profit_difference):,.2f}",
     delta=f"{better_property} advantage",
     delta_color="off",
 )
@@ -336,11 +348,17 @@ metric_4.metric(
 )
 
 st.info(
-    f"At {annual_appreciation:.1%} annual appreciation, "
+    f"At {annual_appreciation:.2%} annual appreciation, "
     f"{better_property} produces approximately "
-    f"${abs(profit_difference):,.0f} more total profit "
+    f"${abs(profit_difference):,.2f} more total profit "
     f"over {holding_period_years} years."
 )
+
+def format_currency(value):
+    if value < 0:
+        return f"-${abs(value):,.2f}"
+
+    return f"${value:,.2f}"
 
 # Add the comparison table
 comparison_table = pd.DataFrame({
@@ -393,9 +411,65 @@ comparison_table["B Minus A"] = (
     - comparison_table["Property A"]
 )
 
+currency_metrics = {
+    "Purchase Price",
+    "Initial Cash Investment",
+    "Monthly Mortgage Payment",
+    "Year 1 Cash Flow",
+    "Cumulative Cash Flow",
+    "Projected Sale Price",
+    "Selling Costs",
+    "Remaining Mortgage",
+    "Net Sale Proceeds",
+    "Total Profit",
+}
+
+percentage_metrics = {
+    "Total Return",
+    "Simplified Annualized Return",
+}
+
+formatted_comparison = comparison_table.copy()
+
+display_value_columns = [
+    "Property A",
+    "Property B",
+    "B Minus A",
+]
+
+formatted_comparison[
+    display_value_columns
+] = formatted_comparison[
+    display_value_columns
+].astype(object)
+
+for row_index, row in formatted_comparison.iterrows():
+    metric = row["Metric"]
+
+    if metric in currency_metrics:
+        formatted_comparison.loc[
+            row_index,
+            ["Property A", "Property B", "B Minus A"],
+        ] = [
+            format_currency(row["Property A"]),
+            format_currency(row["Property B"]),
+            format_currency(row["B Minus A"]),
+        ]
+
+    elif metric in percentage_metrics:
+        formatted_comparison.loc[
+            row_index,
+            ["Property A", "Property B", "B Minus A"],
+        ] = [
+            f"{row['Property A']:.2%}",
+            f"{row['Property B']:.2%}",
+            f"{row['B Minus A']:.2%}",
+        ]
+
 st.subheader("Detailed Comparison")
+
 st.dataframe(
-    comparison_table,
+    formatted_comparison,
     use_container_width=True,
     hide_index=True,
 )
@@ -408,7 +482,7 @@ property_colors = {
 
 
 def currency_axis(value, position):
-    return f"${value:,.0f}"
+    return f"${value:,.2f}"
 
 
 currency_formatter = FuncFormatter(currency_axis)
@@ -566,7 +640,7 @@ def create_appreciation_chart(
 
     ax.xaxis.set_major_formatter(
         FuncFormatter(
-            lambda value, position: f"{value:.0%}"
+            lambda value, position: f"{value:.2%}"
         )
     )
 
@@ -726,7 +800,7 @@ scenario_display = appreciation_scenarios.copy()
 
 scenario_display["Appreciation Rate"] = (
     scenario_display["Appreciation Rate"]
-    .map(lambda value: f"{value:.1%}")
+    .map(lambda value: f"{value:.2%}")
 )
 
 for column in [
@@ -736,7 +810,7 @@ for column in [
 ]:
     scenario_display[column] = (
         scenario_display[column]
-        .map(lambda value: f"${value:,.0f}")
+        .map(lambda value: f"${value:,.2f}")
     )
 
 with st.expander("View appreciation scenario table"):
@@ -746,6 +820,39 @@ with st.expander("View appreciation scenario table"):
         hide_index=True,
     )
 
+# Create copies
+property_a_projection_display = (
+    property_a_projection.copy()
+)
+
+property_b_projection_display = (
+    property_b_projection.copy()
+)
+
+numeric_columns_a = (
+    property_a_projection_display
+    .select_dtypes(include="number")
+    .columns
+)
+
+numeric_columns_b = (
+    property_b_projection_display
+    .select_dtypes(include="number")
+    .columns
+)
+
+property_a_projection_display[
+    numeric_columns_a
+] = property_a_projection_display[
+    numeric_columns_a
+].round(2)
+
+property_b_projection_display[
+    numeric_columns_b
+] = property_b_projection_display[
+    numeric_columns_b
+].round(2)
+
 # Add the annual projection tables
 with st.expander("View annual projection tables"):
     property_a_tab, property_b_tab = st.tabs(
@@ -754,15 +861,14 @@ with st.expander("View annual projection tables"):
 
     with property_a_tab:
         st.dataframe(
-            property_a_projection,
+            property_a_projection_display,
             use_container_width=True,
             hide_index=True,
         )
 
     with property_b_tab:
         st.dataframe(
-            property_b_projection,
+            property_b_projection_display,
             use_container_width=True,
             hide_index=True,
         )
-
