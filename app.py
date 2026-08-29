@@ -5,7 +5,11 @@ import matplotlib.pyplot as plt
 
 from matplotlib.ticker import FuncFormatter
 
-from calculations import project_property
+from calculations import (
+    calculate_break_even_appreciation,
+    create_appreciation_scenarios,
+    project_property,
+)
 
 # Configure the page
 st.set_page_config(
@@ -258,23 +262,6 @@ property_b = {
     "monthly_hoa": property_b_monthly_hoa,
 }
 
-
-property_a_projection, property_a_summary = project_property(
-    property_a
-)
-
-property_b_projection, property_b_summary = project_property(
-    property_b
-)
-
-combined_projection = pd.concat(
-    [
-        property_a_projection,
-        property_b_projection,
-    ],
-    ignore_index=True,
-)
-
 # Run the model
 property_a_projection, property_a_summary = project_property(
     property_a
@@ -290,6 +277,24 @@ combined_projection = pd.concat(
         property_b_projection,
     ],
     ignore_index=True,
+)
+
+# Scenarios
+break_even_appreciation = (
+    calculate_break_even_appreciation(
+        property_a,
+        property_b,
+    )
+)
+
+appreciation_scenarios = (
+    create_appreciation_scenarios(
+        property_a,
+        property_b,
+        minimum_rate=0.00,
+        maximum_rate=0.10,
+        step=0.005,
+    )
 )
 
 # Create headline results
@@ -450,6 +455,128 @@ def create_projection_chart(
     fig.tight_layout()
     return fig
 
+# Create appreciation chart
+def create_appreciation_chart(
+    scenario_data,
+    break_even_rate,
+    property_a,
+    property_b,
+):
+    fig, ax = plt.subplots(figsize=(11, 6))
+
+    ax.plot(
+        scenario_data["Appreciation Rate"],
+        scenario_data["Property A Total Profit"],
+        marker="o",
+        markersize=4,
+        linewidth=2.5,
+        label="Property A",
+        color=property_colors["Property A"],
+    )
+
+    ax.plot(
+        scenario_data["Appreciation Rate"],
+        scenario_data["Property B Total Profit"],
+        marker="o",
+        markersize=4,
+        linewidth=2.5,
+        label="Property B",
+        color=property_colors["Property B"],
+    )
+
+    if break_even_rate is not None:
+        break_even_property_a = {
+            **property_a,
+            "annual_appreciation": break_even_rate,
+        }
+
+        break_even_property_b = {
+            **property_b,
+            "annual_appreciation": break_even_rate,
+        }
+
+        _, break_even_summary_a = project_property(
+            break_even_property_a
+        )
+
+        _, break_even_summary_b = project_property(
+            break_even_property_b
+        )
+
+        break_even_profit = (
+            break_even_summary_a["Total Profit"]
+            + break_even_summary_b["Total Profit"]
+        ) / 2
+
+        ax.scatter(
+            break_even_rate,
+            break_even_profit,
+            s=110,
+            color="#DC2626",
+            edgecolor="white",
+            linewidth=1.5,
+            zorder=5,
+        )
+
+        ax.axvline(
+            x=break_even_rate,
+            color="#DC2626",
+            linestyle="--",
+            linewidth=1.2,
+            alpha=0.7,
+        )
+
+        ax.annotate(
+            f"Break-even: {break_even_rate:.2%}",
+            xy=(
+                break_even_rate,
+                break_even_profit,
+            ),
+            xytext=(14, 18),
+            textcoords="offset points",
+            fontsize=9,
+            fontweight="bold",
+            color="#991B1B",
+            bbox={
+                "boxstyle": "round,pad=0.3",
+                "facecolor": "white",
+                "edgecolor": "#DC2626",
+                "alpha": 0.95,
+            },
+            arrowprops={
+                "arrowstyle": "->",
+                "color": "#DC2626",
+                "linewidth": 1,
+            },
+        )
+
+    ax.axhline(
+        y=0,
+        color="black",
+        linewidth=1,
+    )
+
+    ax.set_title(
+        "10-Year Total Profit by Appreciation Rate",
+        fontsize=14,
+        fontweight="bold",
+    )
+    ax.set_xlabel("Annual Appreciation Rate")
+    ax.set_ylabel("10-Year Total Profit")
+
+    ax.xaxis.set_major_formatter(
+        FuncFormatter(
+            lambda value, position: f"{value:.0%}"
+        )
+    )
+
+    ax.yaxis.set_major_formatter(currency_formatter)
+    ax.grid(axis="y", alpha=0.3)
+    ax.legend()
+
+    fig.tight_layout()
+    return fig
+
 # Add the first three charts
 st.subheader("Annual Projections")
 
@@ -498,6 +625,126 @@ st.pyplot(
 )
 
 plt.close(mortgage_figure)
+
+st.divider()
+st.subheader("Appreciation and Break-Even Analysis")
+
+st.caption(
+    "Both properties are assigned the same appreciation rate. "
+    "The break-even rate is where their 10-year total profits "
+    "are equal."
+)
+
+current_profit_difference = (
+    property_b_summary["Total Profit"]
+    - property_a_summary["Total Profit"]
+)
+
+current_winner = (
+    "Property B"
+    if current_profit_difference > 0
+    else "Property A"
+)
+
+break_even_column, current_column, margin_column = (
+    st.columns(3)
+)
+
+if break_even_appreciation is not None:
+    break_even_column.metric(
+        "Break-Even Appreciation",
+        f"{break_even_appreciation:.2%}",
+    )
+
+    appreciation_margin = (
+        annual_appreciation
+        - break_even_appreciation
+    )
+
+    margin_column.metric(
+        "Current Rate vs. Break-Even",
+        f"{appreciation_margin:+.2%}",
+    )
+
+else:
+    break_even_column.metric(
+        "Break-Even Appreciation",
+        "No crossover",
+    )
+
+    margin_column.metric(
+        "Current Rate vs. Break-Even",
+        "N/A",
+    )
+
+current_column.metric(
+    "Winner at Current Rate",
+    current_winner,
+)
+
+# Display the chart
+appreciation_figure = create_appreciation_chart(
+    appreciation_scenarios,
+    break_even_appreciation,
+    property_a,
+    property_b,
+)
+
+st.pyplot(
+    appreciation_figure,
+    use_container_width=True,
+)
+
+plt.close(appreciation_figure)
+
+# Add interpretation message
+if break_even_appreciation is None:
+    st.warning(
+        "No break-even appreciation rate was found between "
+        "0% and 20% under the current assumptions."
+    )
+
+elif annual_appreciation < break_even_appreciation:
+    st.info(
+        f"At {annual_appreciation:.2%} appreciation, "
+        f"Property A produces more total profit. "
+        f"Property B requires appreciation above approximately "
+        f"{break_even_appreciation:.2%} to become the stronger "
+        f"investment."
+    )
+
+else:
+    st.success(
+        f"At {annual_appreciation:.2%} appreciation, "
+        f"Property B produces more total profit because the "
+        f"assumed rate exceeds the {break_even_appreciation:.2%} "
+        f"break-even threshold."
+    )
+
+# Add bounded scenario table
+scenario_display = appreciation_scenarios.copy()
+
+scenario_display["Appreciation Rate"] = (
+    scenario_display["Appreciation Rate"]
+    .map(lambda value: f"{value:.1%}")
+)
+
+for column in [
+    "Property A Total Profit",
+    "Property B Total Profit",
+    "B Minus A",
+]:
+    scenario_display[column] = (
+        scenario_display[column]
+        .map(lambda value: f"${value:,.0f}")
+    )
+
+with st.expander("View appreciation scenario table"):
+    st.dataframe(
+        scenario_display,
+        use_container_width=True,
+        hide_index=True,
+    )
 
 # Add the annual projection tables
 with st.expander("View annual projection tables"):

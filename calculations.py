@@ -1,5 +1,14 @@
+import copy
+
+
 import numpy_financial as npf
 import pandas as pd
+import numpy as np
+import numpy_financial as npf
+import pandas as pd
+
+from scipy.optimize import brentq
+
 
 # Calculate mortgage balance by property
 def calculate_mortgage_balance(
@@ -194,3 +203,101 @@ def project_property(assumptions):
 
     return annual_projection, summary
 
+def calculate_profit_difference(
+    appreciation_rate,
+    property_a,
+    property_b,
+):
+    scenario_a = copy.deepcopy(property_a)
+    scenario_b = copy.deepcopy(property_b)
+
+    scenario_a["annual_appreciation"] = appreciation_rate
+    scenario_b["annual_appreciation"] = appreciation_rate
+
+    _, summary_a = project_property(scenario_a)
+    _, summary_b = project_property(scenario_b)
+
+    return (
+        summary_b["Total Profit"]
+        - summary_a["Total Profit"]
+    )
+
+def calculate_break_even_appreciation(
+    property_a,
+    property_b,
+    lower_bound=0.00,
+    upper_bound=0.20,
+):
+    def profit_difference(appreciation_rate):
+        return calculate_profit_difference(
+            appreciation_rate,
+            property_a,
+            property_b,
+        )
+
+    lower_difference = profit_difference(lower_bound)
+    upper_difference = profit_difference(upper_bound)
+
+    if lower_difference == 0:
+        return lower_bound
+
+    if upper_difference == 0:
+        return upper_bound
+
+    if lower_difference * upper_difference > 0:
+        return None
+
+    return brentq(
+        profit_difference,
+        lower_bound,
+        upper_bound,
+    )
+
+def create_appreciation_scenarios(
+    property_a,
+    property_b,
+    minimum_rate=0.00,
+    maximum_rate=0.10,
+    step=0.005,
+):
+    scenario_rates = np.arange(
+        minimum_rate,
+        maximum_rate + step / 2,
+        step,
+    )
+
+    scenario_records = []
+
+    for appreciation_rate in scenario_rates:
+        scenario_a = copy.deepcopy(property_a)
+        scenario_b = copy.deepcopy(property_b)
+
+        scenario_a[
+            "annual_appreciation"
+        ] = appreciation_rate
+
+        scenario_b[
+            "annual_appreciation"
+        ] = appreciation_rate
+
+        _, summary_a = project_property(scenario_a)
+        _, summary_b = project_property(scenario_b)
+
+        profit_difference = (
+            summary_b["Total Profit"]
+            - summary_a["Total Profit"]
+        )
+
+        scenario_records.append({
+            "Appreciation Rate": appreciation_rate,
+            "Property A Total Profit": summary_a["Total Profit"],
+            "Property B Total Profit": summary_b["Total Profit"],
+            "B Minus A": profit_difference,
+            "Better Property": (
+                "Property B"
+                if profit_difference > 0
+                else "Property A"
+            ),
+        })
+
+    return pd.DataFrame(scenario_records)
