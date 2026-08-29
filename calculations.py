@@ -301,3 +301,102 @@ def create_appreciation_scenarios(
         })
 
     return pd.DataFrame(scenario_records)
+
+def run_operating_sensitivity(
+    property_a,
+    property_b,
+    annual_rent_growth,
+    vacancy_rate,
+    management_fee_rate,
+    annual_insurance_growth,
+):
+    """
+    Run both properties using the selected operating assumptions
+    without modifying the original property dictionaries.
+    """
+    sensitivity_a = property_a.copy()
+    sensitivity_b = property_b.copy()
+
+    for property_inputs in (sensitivity_a, sensitivity_b):
+        property_inputs["annual_rent_growth"] = annual_rent_growth
+        property_inputs["vacancy_rate"] = vacancy_rate
+        property_inputs["management_fee_rate"] = management_fee_rate
+        property_inputs["annual_insurance_growth"] = (
+            annual_insurance_growth
+        )
+
+    projection_a, summary_a = project_property(sensitivity_a)
+    projection_b, summary_b = project_property(sensitivity_b)
+
+    profit_difference = (
+        summary_b["Total Profit"]
+        - summary_a["Total Profit"]
+    )
+
+    winner = (
+        "Property B"
+        if profit_difference > 0
+        else "Property A"
+    )
+
+    break_even_rate = calculate_break_even_appreciation(
+        sensitivity_a,
+        sensitivity_b,
+    )
+
+    return {
+        "Property A Inputs": sensitivity_a,
+        "Property B Inputs": sensitivity_b,
+        "Property A Projection": projection_a,
+        "Property B Projection": projection_b,
+        "Property A Summary": summary_a,
+        "Property B Summary": summary_b,
+        "B Minus A": profit_difference,
+        "Winner": winner,
+        "Break-Even Appreciation": break_even_rate,
+    }
+
+
+def create_rent_vacancy_sensitivity(
+    property_a,
+    property_b,
+    rent_growth_rates,
+    vacancy_rates,
+    management_fee_rate,
+    annual_insurance_growth,
+):
+    """
+    Calculate Property B's profit advantage across combinations
+    of rent growth and vacancy assumptions.
+    """
+    records = []
+
+    for rent_growth in rent_growth_rates:
+        for vacancy_rate in vacancy_rates:
+            result = run_operating_sensitivity(
+                property_a=property_a,
+                property_b=property_b,
+                annual_rent_growth=rent_growth,
+                vacancy_rate=vacancy_rate,
+                management_fee_rate=management_fee_rate,
+                annual_insurance_growth=(
+                    annual_insurance_growth
+                ),
+            )
+
+            records.append(
+                {
+                    "Rent Growth": rent_growth,
+                    "Vacancy Rate": vacancy_rate,
+                    "Property A Total Profit": result[
+                        "Property A Summary"
+                    ]["Total Profit"],
+                    "Property B Total Profit": result[
+                        "Property B Summary"
+                    ]["Total Profit"],
+                    "B Minus A": result["B Minus A"],
+                    "Winner": result["Winner"],
+                }
+            )
+
+    return pd.DataFrame(records)

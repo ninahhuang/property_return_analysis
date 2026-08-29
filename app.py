@@ -1,14 +1,17 @@
 # Imports
 import pandas as pd
+import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 
 from matplotlib.ticker import FuncFormatter
 
 from calculations import (
+    project_property,
     calculate_break_even_appreciation,
     create_appreciation_scenarios,
-    project_property,
+    run_operating_sensitivity,
+    create_rent_vacancy_sensitivity,
 )
 
 # Configure the page
@@ -651,6 +654,116 @@ def create_appreciation_chart(
     fig.tight_layout()
     return fig
 
+def create_operating_sensitivity_heatmap(
+    sensitivity_data,
+):
+    heatmap_matrix = sensitivity_data.pivot(
+        index="Vacancy Rate",
+        columns="Rent Growth",
+        values="B Minus A",
+    )
+
+    heatmap_matrix = heatmap_matrix.sort_index(
+        ascending=True
+    )
+
+    values = heatmap_matrix.to_numpy()
+
+    color_limit = max(
+        np.nanmax(np.abs(values)),
+        1,
+    )
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    image = ax.imshow(
+        values,
+        cmap="RdYlGn",
+        vmin=-color_limit,
+        vmax=color_limit,
+        aspect="auto",
+    )
+
+    ax.set_xticks(
+        range(len(heatmap_matrix.columns))
+    )
+    ax.set_xticklabels(
+        [
+            f"{rate:.0%}"
+            for rate in heatmap_matrix.columns
+        ]
+    )
+
+    ax.set_yticks(
+        range(len(heatmap_matrix.index))
+    )
+    ax.set_yticklabels(
+        [
+            f"{rate:.0%}"
+            for rate in heatmap_matrix.index
+        ]
+    )
+
+    for row_index in range(values.shape[0]):
+        for column_index in range(values.shape[1]):
+            value = values[row_index, column_index]
+
+            text_color = (
+                "white"
+                if abs(value) > color_limit * 0.55
+                else "black"
+            )
+
+            value_label = (
+                f"-${abs(value):,.0f}"
+                if value < 0
+                else f"${value:,.0f}"
+            )
+
+            ax.text(
+                column_index,
+                row_index,
+                value_label,
+                ha="center",
+                va="center",
+                fontsize=8,
+                color=text_color,
+                fontweight="bold",
+            )
+
+    colorbar = fig.colorbar(
+        image,
+        ax=ax,
+        shrink=0.85,
+    )
+
+    colorbar.set_label(
+        "Property B Profit Minus Property A Profit"
+    )
+
+    colorbar.ax.yaxis.set_major_formatter(
+        FuncFormatter(
+            lambda value, position: (
+                f"-${abs(value):,.0f}"
+                if value < 0
+                else f"${value:,.0f}"
+            )
+        )
+    )
+
+    ax.set_title(
+        "Property B Profit Advantage by Rent Growth and Vacancy",
+        fontsize=13,
+        fontweight="bold",
+    )
+
+    ax.set_xlabel("Annual Rent Growth")
+    ax.set_ylabel("Vacancy Rate")
+
+    fig.tight_layout()
+
+    return fig
+
 # Add the first three charts
 st.subheader("Annual Projections")
 
@@ -819,6 +932,340 @@ with st.expander("View appreciation scenario table"):
         use_container_width=True,
         hide_index=True,
     )
+
+# Operating Sensitivity Analysis
+st.header("Operating Sensitivity Analysis")
+
+st.caption(
+    "Test how changes in rent growth, vacancy, management fees, "
+    "and insurance growth affect the 10-year results. These "
+    "controls do not change the base-case results shown above."
+)
+
+with st.expander(
+    "Operating Sensitivity Controls",
+    expanded=True,
+):
+    sensitivity_col1, sensitivity_col2 = st.columns(2)
+
+    with sensitivity_col1:
+        sensitivity_rent_growth = (
+            st.slider(
+                "Sensitivity annual rent growth",
+                min_value=0.0,
+                max_value=10.0,
+                value=float(
+                    round(
+                        annual_rent_growth * 100,
+                        1,
+                    )
+                ),
+                step=0.5,
+                format="%.1f%%",
+                key="sensitivity_rent_growth",
+            )
+            / 100
+        )
+
+        sensitivity_vacancy = (
+            st.slider(
+                "Sensitivity vacancy rate",
+                min_value=0.0,
+                max_value=20.0,
+                value=float(
+                    round(vacancy_rate * 100, 1)
+                ),
+                step=0.5,
+                format="%.1f%%",
+                key="sensitivity_vacancy",
+            )
+            / 100
+        )
+
+    with sensitivity_col2:
+        sensitivity_management_fee = (
+            st.slider(
+                "Sensitivity management fee",
+                min_value=0.0,
+                max_value=15.0,
+                value=float(
+                    round(
+                        management_fee_rate * 100,
+                        1,
+                    )
+                ),
+                step=0.5,
+                format="%.1f%%",
+                key="sensitivity_management_fee",
+            )
+            / 100
+        )
+
+        sensitivity_insurance_growth = (
+            st.slider(
+                "Sensitivity annual insurance growth",
+                min_value=0.0,
+                max_value=15.0,
+                value=float(
+                    round(
+                        insurance_growth * 100,
+                        1,
+                    )
+                ),
+                step=0.5,
+                format="%.1f%%",
+                key="sensitivity_insurance_growth",
+            )
+            / 100
+        )
+
+# Operating Summary
+operating_result = run_operating_sensitivity(
+    property_a=property_a,
+    property_b=property_b,
+    annual_rent_growth=sensitivity_rent_growth,
+    vacancy_rate=sensitivity_vacancy,
+    management_fee_rate=sensitivity_management_fee,
+    annual_insurance_growth=(
+        sensitivity_insurance_growth
+    ),
+)
+
+operating_summary_a = operating_result[
+    "Property A Summary"
+]
+
+operating_summary_b = operating_result[
+    "Property B Summary"
+]
+
+operating_difference = operating_result[
+    "B Minus A"
+]
+
+operating_winner = operating_result["Winner"]
+
+operating_break_even = operating_result[
+    "Break-Even Appreciation"
+]
+
+# Sensitivity Summary
+operating_metric_1, operating_metric_2, operating_metric_3, operating_metric_4 = (
+    st.columns(4)
+)
+
+property_a_profit_change = (
+    operating_summary_a["Total Profit"]
+    - property_a_summary["Total Profit"]
+)
+
+property_b_profit_change = (
+    operating_summary_b["Total Profit"]
+    - property_b_summary["Total Profit"]
+)
+
+with operating_metric_1:
+    st.metric(
+        "Property A Scenario Profit",
+        f"${operating_summary_a['Total Profit']:,.2f}",
+        delta=(
+            f"${property_a_profit_change:,.2f} vs. base"
+        ),
+    )
+
+with operating_metric_2:
+    st.metric(
+        "Property B Scenario Profit",
+        f"${operating_summary_b['Total Profit']:,.2f}",
+        delta=(
+            f"${property_b_profit_change:,.2f} vs. base"
+        ),
+    )
+
+with operating_metric_3:
+    difference_label = (
+        f"-${abs(operating_difference):,.2f}"
+        if operating_difference < 0
+        else f"${operating_difference:,.2f}"
+    )
+
+    st.metric(
+        "Property B Minus A",
+        difference_label,
+    )
+
+with operating_metric_4:
+    st.metric(
+        "Higher Scenario Profit",
+        operating_winner,
+    )
+
+# Scenario break-even rate
+if operating_break_even is not None:
+    st.info(
+        "Under the selected operating assumptions, Property B "
+        f"needs approximately {operating_break_even:.2%} annual "
+        "appreciation to match Property A's 10-year profit."
+    )
+else:
+    st.warning(
+        "No appreciation break-even point was found within the "
+        "tested appreciation range."
+    )
+
+# Scenario comparison table
+operating_comparison = pd.DataFrame(
+    {
+        "Metric": [
+            "Year 1 Cash Flow",
+            "10-Year Cumulative Cash Flow",
+            "Total Profit",
+            "Total Return",
+            "Simplified Annualized Return",
+        ],
+        "Property A": [
+            operating_summary_a["Year 1 Cash Flow"],
+            operating_summary_a["Cumulative Cash Flow"],
+            operating_summary_a["Total Profit"],
+            operating_summary_a["Total Return"],
+            operating_summary_a[
+                "Simplified Annualized Return"
+            ],
+        ],
+        "Property B": [
+            operating_summary_b["Year 1 Cash Flow"],
+            operating_summary_b["Cumulative Cash Flow"],
+            operating_summary_b["Total Profit"],
+            operating_summary_b["Total Return"],
+            operating_summary_b[
+                "Simplified Annualized Return"
+            ],
+        ],
+    }
+)
+
+operating_comparison["B Minus A"] = (
+    operating_comparison["Property B"]
+    - operating_comparison["Property A"]
+)
+
+currency_rows = [
+    "Year 1 Cash Flow",
+    "10-Year Cumulative Cash Flow",
+    "Total Profit",
+]
+
+percentage_rows = [
+    "Total Return",
+    "Simplified Annualized Return",
+]
+
+formatted_operating_comparison = (
+    operating_comparison.copy()
+)
+
+for column in [
+    "Property A",
+    "Property B",
+    "B Minus A",
+]:
+    formatted_operating_comparison[column] = (
+        formatted_operating_comparison[column].astype(
+            object
+        )
+    )
+
+for row_index in formatted_operating_comparison.index:
+    metric = formatted_operating_comparison.loc[
+        row_index,
+        "Metric",
+    ]
+
+    for column in [
+        "Property A",
+        "Property B",
+        "B Minus A",
+    ]:
+        value = operating_comparison.loc[
+            row_index,
+            column,
+        ]
+
+        if metric in currency_rows:
+            formatted_operating_comparison.loc[
+                row_index,
+                column,
+            ] = (
+                f"-${abs(value):,.2f}"
+                if value < 0
+                else f"${value:,.2f}"
+            )
+
+        elif metric in percentage_rows:
+            formatted_operating_comparison.loc[
+                row_index,
+                column,
+            ] = f"{value:.2%}"
+
+st.subheader("Selected Operating Scenario")
+
+st.dataframe(
+    formatted_operating_comparison,
+    hide_index=True,
+    use_container_width=True,
+)
+
+# Rent-growth and vacancy heatmap
+rent_growth_test_rates = [
+    0.00,
+    0.02,
+    0.04,
+    0.06,
+    0.08,
+    0.10,
+]
+
+vacancy_test_rates = [
+    0.00,
+    0.05,
+    0.10,
+    0.15,
+    0.20,
+]
+
+rent_vacancy_sensitivity = (
+    create_rent_vacancy_sensitivity(
+        property_a=property_a,
+        property_b=property_b,
+        rent_growth_rates=rent_growth_test_rates,
+        vacancy_rates=vacancy_test_rates,
+        management_fee_rate=(
+            sensitivity_management_fee
+        ),
+        annual_insurance_growth=(
+            sensitivity_insurance_growth
+        ),
+    )
+)
+
+st.subheader("Rent Growth and Vacancy Sensitivity")
+
+st.caption(
+    "Green cells indicate that Property B produces more total "
+    "profit. Red cells indicate that Property A produces more. "
+    "Management fees and insurance growth remain at the selected "
+    "sensitivity-control values."
+)
+
+operating_heatmap = (
+    create_operating_sensitivity_heatmap(
+        rent_vacancy_sensitivity
+    )
+)
+
+st.pyplot(operating_heatmap)
+
+plt.close(operating_heatmap)
 
 # Create copies
 property_a_projection_display = (
