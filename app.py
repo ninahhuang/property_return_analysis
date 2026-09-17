@@ -1,17 +1,16 @@
 # Imports
-import pandas as pd
-import numpy as np
-import streamlit as st
 import matplotlib.pyplot as plt
-
+import numpy as np
+import pandas as pd
+import streamlit as st
 from matplotlib.ticker import FuncFormatter
 
 from calculations import (
-    project_property,
     calculate_break_even_appreciation,
     create_appreciation_scenarios,
-    run_operating_sensitivity,
     create_rent_vacancy_sensitivity,
+    project_property,
+    run_operating_sensitivity,
 )
 
 # Configure the page
