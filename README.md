@@ -4,6 +4,10 @@ An interactive financial model for comparing the projected 10-year performance o
 
 The project evaluates rental cash flow, operating expenses, mortgage amortization, property appreciation, accumulated equity, sale proceeds, and total investment return. It also identifies the annual appreciation rate at which the more expensive property begins producing more total profit.
 
+## Live dashboard
+
+[Open the Rental Property Return Analysis dashboard](https://property-return-analysis.streamlit.app/)
+
 ## Project objective
 
 The central investment question is:
@@ -142,14 +146,21 @@ The formulas are displayed using LaTeX notation.
 ## Repository structure
 
 ```text
-rental_property_analysis/
+property_return_analysis/
+├── docs/
+│   ├── assumptions.md
+│   ├── methodology.md
+│   └── testing_checklist.md
+├── tests/
+│   └── test_calculations.py
+├── visualizations/
+├── .gitignore
+├── LICENSE
+├── README.md
 ├── app.py
 ├── calculations.py
 ├── rental_property_analysis.ipynb
-├── requirements.txt
-├── README.md
-├── .gitignore
-└── visualizations/
+└── requirements.txt
 ```
 
 ### `app.py`
@@ -201,8 +212,8 @@ Lists the Python packages required to run the notebook and dashboard.
 ### 1. Clone the repository
 
 ```bash
-git clone <YOUR-REPOSITORY-URL>
-cd rental_property_analysis
+git clone https://github.com/ninahhuang/property_return_analysis.git
+cd property_return_analysis
 ```
 
 Replace `<YOUR-REPOSITORY-URL>` with the GitHub URL for this repository.
