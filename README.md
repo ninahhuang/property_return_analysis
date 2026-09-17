@@ -160,7 +160,8 @@ property_return_analysis/
 ├── app.py
 ├── calculations.py
 ├── rental_property_analysis.ipynb
-└── requirements.txt
+├── requirements.txt
+└── requirements-dev.txt
 ```
 
 ### `app.py`
@@ -609,6 +610,20 @@ Potential extensions include:
 * Saved user scenarios
 * Additional property comparisons
 * Market-data integration
+
+## Example outputs
+
+### Annual cash flow comparison
+
+![Annual cash flow comparison](visualizations/annual_cash_flow.png)
+
+### Ten-year total profit
+
+![Ten-year total profit](visualizations/10_yr_total_profit.png)
+
+### Property sensitivity comparison
+
+![Property sensitivity comparison](visualizations/property_sensitivity_comparison.png)
 
 ## Technology
 
